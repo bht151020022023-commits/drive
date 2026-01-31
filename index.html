@@ -4,8 +4,7 @@
 <meta charset="UTF-8">
 <title>Album của tôi</title>
 
-<!-- Google API -->
-<script src="https://apis.google.com/js/api.js"></script>
+<!-- Google Identity -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 
 <style>
@@ -17,7 +16,7 @@ button{padding:10px 15px;border:none;border-radius:6px;margin:5px;background:#ff
 </style>
 </head>
 
-<body onload="gapiLoaded()">
+<body>
 
 <h1>📂 Album của tôi</h1>
 
@@ -34,25 +33,14 @@ button{padding:10px 15px;border:none;border-radius:6px;margin:5px;background:#ff
 const CLIENT_ID = "1037417752773-l2sg5hbdrdcs0jg47ur0j1htebkl52cl.apps.googleusercontent.com";
 const SCOPES = "https://www.googleapis.com/auth/drive.file";
 
-let gapiReady = false;
-
-function gapiLoaded(){
-  gapi.load('client', async ()=>{
-    await gapi.client.init({
-      discoveryDocs:["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"]
-    });
-    gapiReady = true;
-  });
-}
-
 async function uploadToDrive(){
-  if(!gapiReady){
-    alert("Google API đang khởi động, đợi vài giây rồi thử lại");
-    return;
-  }
-
   const file = document.getElementById('fileInput').files[0];
   if(!file) return alert("Chọn ảnh trước");
+
+  if(!google.accounts){
+    alert("Google script chưa load xong, F5 lại trang");
+    return;
+  }
 
   const tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
