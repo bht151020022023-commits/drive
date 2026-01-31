@@ -3,9 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <title>Album của tôi</title>
+
+<!-- Google API -->
 <script src="https://apis.google.com/js/api.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
 <style>
-body{font-family:sans-serif;background:#0f1b2b;color:#fff;text-align:center}
+body{font-family:sans-serif;background:#0f1b2b;color:#fff;text-align:center;margin:0}
 button{padding:10px 15px;border:none;border-radius:6px;margin:5px;background:#ff4d6d;color:#fff;cursor:pointer}
 #gallery img{width:180px;margin:10px;border-radius:10px;cursor:pointer}
 #viewer{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#000d;justify-content:center;align-items:center}
@@ -30,50 +34,55 @@ button{padding:10px 15px;border:none;border-radius:6px;margin:5px;background:#ff
 const CLIENT_ID = "1037417752773-l2sg5hbdrdcs0jg47ur0j1htebkl52cl.apps.googleusercontent.com";
 const SCOPES = "https://www.googleapis.com/auth/drive.file";
 
-let gapiInited = false;
+let gapiReady = false;
 
-function gapiLoaded() {
-  gapi.load('client:auth2', async () => {
+function gapiLoaded(){
+  gapi.load('client', async ()=>{
     await gapi.client.init({
-      clientId: CLIENT_ID,
-      scope: SCOPES,
-      discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"]
+      discoveryDocs:["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"]
     });
-    gapiInited = true;
+    gapiReady = true;
   });
 }
 
 async function uploadToDrive(){
-  if(!gapiInited){ alert("Chưa load Google API"); return; }
+  if(!gapiReady){
+    alert("Google API đang khởi động, đợi vài giây rồi thử lại");
+    return;
+  }
 
   const file = document.getElementById('fileInput').files[0];
   if(!file) return alert("Chọn ảnh trước");
 
-  await gapi.auth2.getAuthInstance().signIn();
+  const tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: async (resp)=>{
+      if(resp.error) return alert("Lỗi đăng nhập");
 
-  const accessToken = gapi.auth.getToken().access_token;
+      const form = new FormData();
+      form.append("metadata", new Blob([JSON.stringify({name:file.name,mimeType:file.type})],{type:"application/json"}));
+      form.append("file", file);
 
-  const metadata = { name: file.name, mimeType: file.type };
-  const form = new FormData();
-  form.append("metadata", new Blob([JSON.stringify(metadata)], {type: "application/json"}));
-  form.append("file", file);
+      const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",{
+        method:"POST",
+        headers:{Authorization:"Bearer "+resp.access_token},
+        body: form
+      });
 
-  const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
-    method: "POST",
-    headers: new Headers({ Authorization: "Bearer " + accessToken }),
-    body: form
+      const data = await res.json();
+      const imgLink = `https://drive.google.com/thumbnail?id=${data.id}&sz=w1200`;
+      addImage(imgLink);
+    }
   });
 
-  const data = await res.json();
-  const imgLink = `https://drive.google.com/thumbnail?id=${data.id}&sz=w1200`;
-
-  addImage(imgLink);
+  tokenClient.requestAccessToken();
 }
 
 function addImage(src){
-  const img = document.createElement("img");
-  img.src = src;
-  img.onclick = ()=>showBig(src);
+  const img=document.createElement("img");
+  img.src=src;
+  img.onclick=()=>showBig(src);
   document.getElementById("gallery").appendChild(img);
 }
 
